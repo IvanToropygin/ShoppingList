@@ -1,5 +1,6 @@
 package com.stepik.shoppinglist.presentation
 
+import android.content.Context
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
@@ -18,6 +19,7 @@ import com.stepik.shoppinglist.domain.ShopItem
 class ShopItemFragment : Fragment() {
 
     private lateinit var viewModel: ShopItemViewModel
+    private lateinit var onEditingFinishedListener: OnEditingFinishedListener
 
     private lateinit var tilName: TextInputLayout
     private lateinit var tilCount: TextInputLayout
@@ -28,10 +30,17 @@ class ShopItemFragment : Fragment() {
     private var screenMode = UNKNOWN_MODE
     private var shopItemId = ShopItem.UNDEFINED_ID
 
+    override fun onAttach(context: Context) {
+        super.onAttach(context)
+        if (context is OnEditingFinishedListener) onEditingFinishedListener = context
+        else throw RuntimeException("Activity must implement OnEditingFinishedListener")
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         parseParams()
     }
+
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
@@ -69,7 +78,7 @@ class ShopItemFragment : Fragment() {
         }
 
         viewModel.shouldCloseScreen.observe(viewLifecycleOwner) {
-            activity?.onBackPressed()
+            onEditingFinishedListener.onEditingFinished()
         }
     }
 
@@ -136,14 +145,18 @@ class ShopItemFragment : Fragment() {
 
     private fun parseParams() {
         val args = requireArguments()
-        if (args.containsKey(SCREEN_MODE)) throw RuntimeException("Param screen mode is absent")
-
+        if (!args.containsKey(SCREEN_MODE)) {
+            throw RuntimeException("Param screen mode is absent")
+        }
         val mode = args.getString(SCREEN_MODE)
-        if (mode != EDIT_MODE && mode != ADD_MODE) throw RuntimeException("Unknown screen mode: $mode")
-
+        if (mode != EDIT_MODE && mode != ADD_MODE) {
+            throw RuntimeException("Unknown screen mode $mode")
+        }
         screenMode = mode
         if (screenMode == EDIT_MODE) {
-            if (args.containsKey(SHOP_ITEM_ID)) throw RuntimeException("Need extra_shop_item_id for mode: $mode")
+            if (!args.containsKey(SHOP_ITEM_ID)) {
+                throw RuntimeException("Param shop item id is absent")
+            }
             shopItemId = args.getInt(SHOP_ITEM_ID, ShopItem.UNDEFINED_ID)
         }
     }
@@ -156,6 +169,10 @@ class ShopItemFragment : Fragment() {
         btnSave = view.findViewById(R.id.save_button)
     }
 
+    interface OnEditingFinishedListener {
+        fun onEditingFinished()
+    }
+
     companion object {
 
         private const val SCREEN_MODE = "extra_mode"
@@ -164,7 +181,7 @@ class ShopItemFragment : Fragment() {
         private const val ADD_MODE = "mode_add"
         private const val UNKNOWN_MODE = ""
 
-        fun newInstanceAddItem(): ShopItemFragment = ShopItemFragment().apply {
+        fun newInstanceAddItem() = ShopItemFragment().apply {
             arguments = Bundle().apply {
                 putString(SCREEN_MODE, ADD_MODE)
             }
@@ -173,7 +190,7 @@ class ShopItemFragment : Fragment() {
         fun newInstanceEditItem(shopItemId: Int) = ShopItemFragment().apply {
             arguments = Bundle().apply {
                 putString(SCREEN_MODE, EDIT_MODE)
-                putString(SHOP_ITEM_ID, shopItemId.toString())
+                putInt(SHOP_ITEM_ID, shopItemId)
             }
         }
     }
